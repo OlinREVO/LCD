@@ -1,199 +1,588 @@
-/* lcd.c -- (c) chris kern -- Mon Feb 16 17:36:34 EST 2009  */
-/* Swap read error.  You lose your mind.                    */
-#include "lcd.h"
+/*
+ * known Problems: none
+ * Version:        1.1
+ * Description:    Graphic Library for KS0108- (and compatible) based LCDs
+ * 
+ */
+
+#include <inttypes.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include "ks0108.h"
 
-// LCD <=> AVR connections:
+lcdCoord			ks0108Coord;
+uint8_t				ks0108Inverted=0;
+ks0108FontCallback	ks0108FontRead;
+uint8_t				ks0108FontColor;
+const uint8_t*		ks0108Font;
+
+void ks0108DrawLine(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color) {
+	uint8_t length, i, y, yAlt, xTmp, yTmp;
+	int16_t m;
+	
+	//
+	// vertical line
+	//
+	if(x1 == x2) {
+		// x1|y1 must be the upper point
+		if(y1 > y2) {
+			yTmp = y1;
+			y1 = y2;
+			y2 = yTmp;
+		}
+		ks0108DrawVertLine(x1, y1, y2-y1, color);
+	
+	//
+	// horizontal line
+	//
+	} else if(y1 == y2) {	
+		// x1|y1 must be the left point
+		if(x1 > x2) {
+			xTmp = x1;
+			x1 = x2;
+			x2 = xTmp;
+		}
+		ks0108DrawHoriLine(x1, y1, x2-x1, color);
+	
+	//
+	// schiefe line :)
+	//
+	} else {
+		// angle >= 45°
+		if((y2-y1) >= (x2-x1) || (y1-y2) >= (x2-x1)) {
+			// x1 must be smaller than x2
+			if(x1 > x2) {
+				xTmp = x1;
+				yTmp = y1;
+				x1 = x2;
+				y1 = y2;
+				x2 = xTmp;
+				y2 = yTmp;
+			}
+		
+			length = x2-x1;		// not really the length :)
+			m = ((y2-y1)*200)/length;
+			yAlt = y1;
+			
+			for(i=0; i<=length; i++) {
+				y = ((m*i)/200)+y1;
+				
+				if((m*i)%200 >= 100)
+					y++;
+				else if((m*i)%200 <= -100)
+					y--;
+				
+				ks0108DrawLine(x1+i, yAlt, x1+i, y, color);
+				
+				if(length <= (y2-y1) && y1 < y2)
+					yAlt = y+1;
+				else if(length <= (y1-y2) && y1 > y2)
+					yAlt = y-1;
+				else
+					yAlt = y;
+			}
+		
+		// angle < 45°
+		} else {
+			// y1 must be smaller than y2
+			if(y1 > y2) {
+				xTmp = x1;
+				yTmp = y1;
+				x1 = x2;
+				y1 = y2;
+				x2 = xTmp;
+				y2 = yTmp;
+			}
+			
+			length = y2-y1;
+			m = ((x2-x1)*200)/length;
+			yAlt = x1;
+			
+			for(i=0; i<=length; i++) {
+				y = ((m*i)/200)+x1;
+				
+				if((m*i)%200 >= 100)
+					y++;
+				else if((m*i)%200 <= -100)
+					y--;
+				
+				ks0108DrawLine(yAlt, y1+i, y, y1+i, color);
+				if(length <= (x2-x1) && x1 < x2)
+					yAlt = y+1;
+				else if(length <= (x1-x2) && x1 > x2)
+					yAlt = y-1;
+				else
+					yAlt = y;
+			}
+		}
+	}
+}
+
+void ks0108DrawRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t color) {
+	ks0108DrawHoriLine(x, y, width, color);				// top
+	ks0108DrawHoriLine(x, y+height, width, color);		// bottom
+	ks0108DrawVertLine(x, y, height, color);			// left
+	ks0108DrawVertLine(x+width, y, height, color);		// right
+}
+
+void ks0108DrawRoundRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t radius, uint8_t color) {
+  	int16_t tSwitch, x1 = 0, y1 = radius;
+  	tSwitch = 3 - 2 * radius;
+	
+	while (x1 <= y1) {
+	    ks0108SetDot(x+radius - x1, y+radius - y1, color);
+	    ks0108SetDot(x+radius - y1, y+radius - x1, color);
+
+	    ks0108SetDot(x+width-radius + x1, y+radius - y1, color);
+	    ks0108SetDot(x+width-radius + y1, y+radius - x1, color);
+	    
+	    ks0108SetDot(x+width-radius + x1, y+height-radius + y1, color);
+	    ks0108SetDot(x+width-radius + y1, y+height-radius + x1, color);
+
+	    ks0108SetDot(x+radius - x1, y+height-radius + y1, color);
+	    ks0108SetDot(x+radius - y1, y+height-radius + x1, color);
+
+	    if (tSwitch < 0) {
+	    	tSwitch += (4 * x1 + 6);
+	    } else {
+	    	tSwitch += (4 * (x1 - y1) + 10);
+	    	y1--;
+	    }
+	    x1++;
+	}
+	  	
+	ks0108DrawHoriLine(x+radius, y, width-(2*radius), color);			// top
+	ks0108DrawHoriLine(x+radius, y+height, width-(2*radius), color);	// bottom
+	ks0108DrawVertLine(x, y+radius, height-(2*radius), color);			// left
+	ks0108DrawVertLine(x+width, y+radius, height-(2*radius), color);	// right
+}
+
+/*
+ * Hardware-Functions 
+ */
+void ks0108FillRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t color) {
+	uint8_t mask, pageOffset, h, i, data;
+	height++;
+	
+	pageOffset = y%8;
+	y -= pageOffset;
+	mask = 0xFF;
+	if(height < 8-pageOffset) {
+		mask >>= (8-height);
+		h = height;
+	} else {
+		h = 8-pageOffset;
+	}
+	mask <<= pageOffset;
+	
+	ks0108GotoXY(x, y);
+	for(i=0; i<=width; i++) {
+		data = ks0108ReadData();
+		
+		if(color == BLACK) {
+			data |= mask;
+		} else {
+			data &= ~mask;
+		}
+
+		ks0108WriteData(data);
+	}
+	
+	while(h+8 <= height) {
+		h += 8;
+		y += 8;
+		ks0108GotoXY(x, y);
+		
+		for(i=0; i<=width; i++) {
+			ks0108WriteData(color);
+		}
+	}
+	
+	if(h < height) {
+		mask = ~(0xFF << (height-h));
+		ks0108GotoXY(x, y+8);
+		
+		for(i=0; i<=width; i++) {
+			data = ks0108ReadData();
+		
+			if(color == BLACK) {
+				data |= mask;
+			} else {
+				data &= ~mask;
+			}
+	
+			ks0108WriteData(data);
+		}
+	}
+}
+
+void ks0108InvertRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height) {
+	uint8_t mask, pageOffset, h, i, data, tmpData;
+	height++;
+	
+	pageOffset = y%8;
+	y -= pageOffset;
+	mask = 0xFF;
+	if(height < 8-pageOffset) {
+		mask >>= (8-height);
+		h = height;
+	} else {
+		h = 8-pageOffset;
+	}
+	mask <<= pageOffset;
+	
+	ks0108GotoXY(x, y);
+	for(i=0; i<=width; i++) {
+		data = ks0108ReadData();
+		tmpData = ~data;
+		data = (tmpData & mask) | (data & ~mask);
+		ks0108WriteData(data);
+	}
+	
+	while(h+8 <= height) {
+		h += 8;
+		y += 8;
+		ks0108GotoXY(x, y);
+		
+		for(i=0; i<=width; i++) {
+			data = ks0108ReadData();
+			ks0108WriteData(~data);
+		}
+	}
+	
+	if(h < height) {
+		mask = ~(0xFF << (height-h));
+		ks0108GotoXY(x, y+8);
+		
+		for(i=0; i<=width; i++) {
+			data = ks0108ReadData();
+			tmpData = ~data;
+			data = (tmpData & mask) | (data & ~mask);
+			ks0108WriteData(data);
+		}
+	}
+}
+
+void ks0108SetInverted(uint8_t invert) {
+	if(ks0108Inverted != invert) {
+		ks0108InvertRect(0,0,127,63);
+		ks0108Inverted = invert;
+	}
+}
+
+void ks0108SetDot(uint8_t x, uint8_t y, uint8_t color) {
+	uint8_t data;
+	
+	ks0108GotoXY(x, y-y%8);					// read data from display memory
+	data = ks0108ReadData();
+	
+	if(color == BLACK) {
+		data |= 0x01 << (y%8);				// set dot
+	} else {
+		data &= ~(0x01 << (y%8));			// clear dot
+	}
+	
+	ks0108WriteData(data);					// write data back to display
+}
+
 //
-// D:   PORTB
-// D/I: PD7
-// R/W: PD6
-// E:   PD5
-// CS1: PD2
-// CS2: PD3
+// Font Functions
 //
-// If you change them you will need to change the following #define's:
 
-#define LCD_SELECT_INST (PORTD &= ~(1<<7))
-#define LCD_SELECT_DATA (PORTD |= (1<<7))
-#define LCD_SELECT_READ (DDRB = 0x00, PORTD |= (1<<6))
-#define LCD_SELECT_WRITE (PORTD &= ~(1<<6), DDRB = 0xFF)
-#define LCD_SELECT_CS1 (PORTD |= (1<<3), PORTD &= ~(1<<2))
-#define LCD_SELECT_CS2 (PORTD |= (1<<2), PORTD &= ~(1<<3))
-#define LCD_E_HIGH (PORTD |= (1<<5))
-#define LCD_E_LOW (PORTD &= ~(1<<5))
-
-#define LCD_SELECT_CHIP(A) ((A) ? LCD_SELECT_CS2 : LCD_SELECT_CS1)
-#define LCD_SELECT_REG(A) ((A) ? LCD_SELECT_DATA : LCD_SELECT_INST);
-#define LCD_INST 0
-#define LCD_DATA 1
-#define LCD_YADDR(Y) (((Y) & 0x3F) | 0x40)
-#define LCD_XADDR(X) (((X) & 0x07) | 0xB8)
-#define LCD_POWERON(P) (((P)?1:0) | 0x3E)
-#define LCD_STARTLINE(L) (((L) & 0x3F) | 0xC0)
-#define LCD_BUSY (1<<7)
-#define LCD_OFF (1<<5)
-#define LCD_RESET (1<<4)
-
-// These might need to be adjusted.  If they're too low you'll get garbled
-// data; too high and updates will be slow.
-static uint8_t lcd_dl;
-#define LCD_DELAY1 for(lcd_dl=0; lcd_dl<2; ++lcd_dl){ asm volatile("nop\n"); }
-#define LCD_DELAY2 for(lcd_dl=0; lcd_dl<8; ++lcd_dl){ asm volatile("nop\n"); }
-
-#include "font.h"
-
-void lcd_write(uint8_t chip, uint8_t reg, uint8_t data) {
-  LCD_SELECT_WRITE;
-  LCD_SELECT_CHIP(chip);
-  LCD_SELECT_REG(reg);
-  PORTB = data;
-  LCD_DELAY2;
-  LCD_E_HIGH;
-  LCD_DELAY1;
-  LCD_E_LOW;
+uint8_t ks0108ReadFontData(const uint8_t* ptr) {
+	return pgm_read_byte(ptr);
 }
 
-uint8_t lcd_read(uint8_t chip, uint8_t reg) {
-  uint8_t d;
-  LCD_SELECT_READ;
-  LCD_SELECT_CHIP(chip);
-  LCD_SELECT_REG(reg);
-  LCD_DELAY2;
-  LCD_E_HIGH;
-  LCD_DELAY1;
-  d = PINB;
-  LCD_E_LOW;
-  return d;
+void ks0108SelectFont(const char* font, ks0108FontCallback callback, uint8_t color) {
+	ks0108Font = font;
+	ks0108FontRead = callback;
+	ks0108FontColor = color;
 }
 
-void lcd_wait(uint8_t chip) {
-  while(lcd_read(chip, LCD_INST) & (LCD_BUSY | LCD_RESET)) { }
+int ks0108PutChar(char c) {
+	uint8_t width = 0;
+	uint8_t height = ks0108FontRead(ks0108Font+FONT_HEIGHT);
+	uint8_t bytes = (height+7)/8;
+	
+	uint8_t firstChar = ks0108FontRead(ks0108Font+FONT_FIRST_CHAR);
+	uint8_t charCount = ks0108FontRead(ks0108Font+FONT_CHAR_COUNT);
+	
+	uint16_t index = 0;
+	uint8_t x = ks0108Coord.x, y = ks0108Coord.y;
+	
+	if(c < firstChar || c >= (firstChar+charCount)) {
+		return 1;
+	}
+	c-= firstChar;
+	
+	// read width data, to get the index
+	for(uint8_t i=0; i<c; i++) {
+		index += ks0108FontRead(ks0108Font+FONT_WIDTH_TABLE+i);
+	}
+	index = index*bytes+charCount+FONT_WIDTH_TABLE;
+	width = ks0108FontRead(ks0108Font+FONT_WIDTH_TABLE+c);
+	
+	// last but not least, draw the character
+	for(uint8_t i=0; i<bytes; i++) {
+		uint8_t page = i*width;
+		for(uint8_t j=0; j<width; j++) {
+			uint8_t data = ks0108FontRead(ks0108Font+index+page+j);
+			
+			if(height < (i+1)*8) {
+				data >>= (i+1)*8-height;
+			}
+			
+			if(ks0108FontColor == BLACK) {
+				ks0108WriteData(data);
+			} else {
+				ks0108WriteData(~data);
+			}
+		}
+		// 1px gap between chars
+		if(ks0108FontColor == BLACK) {
+			ks0108WriteData(0x00);
+		} else {
+			ks0108WriteData(0xFF);
+		}
+		ks0108GotoXY(x, ks0108Coord.y+8);
+	}
+	ks0108GotoXY(x+width+1, y);
+	
+	return 0;
 }
 
-void lcd_write_wait(uint8_t chip, uint8_t reg, uint8_t data) {
-  lcd_write(chip, reg, data);
-  lcd_wait(chip);
+void ks0108Puts(char* str) {
+	int x = ks0108Coord.x;
+	while(*str != 0) {
+		if(*str == '\n') {
+			ks0108GotoXY(x, ks0108Coord.y+ks0108FontRead(ks0108Font+FONT_HEIGHT));
+		} else {
+			ks0108PutChar(*str);
+		}
+		str++;
+	}
 }
 
-void lcd_init() {
-  uint16_t d;
-  DDRB   =  0x00;  // PORTB inputs for now.
-  DDRD  |=  0xEC;  // 5 outputs on PORTD
-  PORTD &= ~0xE0;  // R/W, D/I, E low
-  PORTD |=  0x0C;  // CS1, CS2 high
-  
-  for(d=0; d<50000; ++d);  // let the above sink in a bit.
-
-  lcd_wait(0);
-  lcd_wait(1);
-  lcd_write_wait(0, LCD_INST, LCD_POWERON(1));
-  lcd_write_wait(1, LCD_INST, LCD_POWERON(1));
-  lcd_write_wait(0, LCD_INST, LCD_STARTLINE(0));
-  lcd_write_wait(1, LCD_INST, LCD_STARTLINE(0));
-
-  lcd_clear();
+void ks0108Puts_P(PGM_P str) {
+	int x = ks0108Coord.x;
+	while(pgm_read_byte(str) != 0) {
+		if(pgm_read_byte(str) == '\n') {
+			ks0108GotoXY(x, ks0108Coord.y+ks0108FontRead(ks0108Font+FONT_HEIGHT));
+		} else {
+			ks0108PutChar(pgm_read_byte(str));
+		}
+		str++;
+	}
 }
 
-
-#define CACHE_EMPTY 255 
-static uint8_t cache_chip = CACHE_EMPTY;
-static uint8_t cache_x;
-static uint8_t cache_y;
-static uint8_t cache_d;
-
-void lcd_flush() {
-  if (cache_chip == CACHE_EMPTY) return;
-  lcd_write_wait(cache_chip, LCD_INST, LCD_YADDR(cache_y));
-  lcd_write_wait(cache_chip, LCD_INST, LCD_XADDR(cache_x));
-  lcd_write_wait(cache_chip, LCD_DATA, cache_d);
-  cache_chip = CACHE_EMPTY;
+uint8_t ks0108CharWidth(char c) {
+	uint8_t width = 0;
+	uint8_t firstChar = ks0108FontRead(ks0108Font+FONT_FIRST_CHAR);
+	uint8_t charCount = ks0108FontRead(ks0108Font+FONT_CHAR_COUNT);
+	
+	// read width data
+	if(c >= firstChar && c < (firstChar+charCount)) {
+		c -= firstChar;
+		width = ks0108FontRead(ks0108Font+FONT_WIDTH_TABLE+c)+1;
+	}
+	
+	return width;
 }
 
-void lcd_load(uint8_t chip, uint8_t x, uint8_t y) {
-  if (cache_chip == chip &&
-      cache_x == x &&
-      cache_y == y) {
-    return;
-  }
-  lcd_flush();
-  cache_x = x;
-  cache_y = y;
-  cache_chip = chip;
-
-  lcd_write_wait(cache_chip, LCD_INST, LCD_YADDR(cache_y));
-  lcd_write_wait(cache_chip, LCD_INST, LCD_XADDR(cache_x));
-  
-  // the lcd has a read pipeline; each read gets you the last's result.
-  lcd_read(cache_chip, LCD_DATA);
-  cache_d = lcd_read(cache_chip, LCD_DATA);
+uint16_t ks0108StringWidth(char* str) {
+	uint16_t width = 0;
+	
+	while(*str != 0) {
+		width += ks0108CharWidth(*str++);
+	}
+	
+	return width;
 }
 
-void lcd_clear() {
-  uint8_t x, y;  
-  for(x = 0; x < 8; ++x) {
-    lcd_write_wait(0, LCD_INST, LCD_YADDR(0));
-    lcd_write_wait(0, LCD_INST, LCD_XADDR(x));
-    for(y = 0; y < 64; ++y) { 
-      lcd_write_wait(0, LCD_DATA, 0);
-    }
-  }
-  
-  for(x = 0; x < 8; ++x) {
-    lcd_write_wait(1, LCD_INST, LCD_YADDR(0));
-    lcd_write_wait(1, LCD_INST, LCD_XADDR(x));
-    for(y = 0; y < 64; ++y) { 
-      lcd_write_wait(1, LCD_DATA, 0);
-    }
-  }
-  cache_chip = CACHE_EMPTY;
+uint16_t ks0108StringWidth_P(PGM_P str) {
+	uint16_t width = 0;
+	
+	while(pgm_read_byte(str) != 0) {
+		width += ks0108CharWidth(pgm_read_byte(str++));
+	}
+	
+	return width;
 }
 
-void lcd_setbit(uint8_t x, uint8_t y, uint8_t v) {
-  uint8_t lcd_chip = (x & 0x40) ? 1 : 0;
-  uint8_t lcd_x = (y & 0x3F) >> 3;
-  uint8_t lcd_y = (x & 0x3F);
-  uint8_t lcd_bit = y & 0x07;
-  lcd_load(lcd_chip, lcd_x, lcd_y);
-  if (v) {
-    cache_d |= 1 << lcd_bit;
-  } else {
-    cache_d &= ~(1 << lcd_bit);
-  }
+void ks0108GotoXY(uint8_t x, uint8_t y) {
+	uint8_t chip = CHIP1, cmd;
+	
+	if(x > 127) x = 0;								// ensure that coordinates are legal
+	if(y > 63)  y = 0;
+	
+	ks0108Coord.x = x;								// save new coordinates
+	ks0108Coord.y = y;
+	ks0108Coord.page = y/8;
+	
+	if(x >= 64) {									// select the right chip
+		x -= 64;
+		chip = CHIP2;
+	}
+	cmd = LCD_SET_ADD | x;
+	ks0108WriteCommand(cmd, chip);					// set x address on active chip
+	
+	cmd = LCD_SET_PAGE | ks0108Coord.page;			// set y address on both chips
+	ks0108WriteCommand(cmd, CHIP1);
+	ks0108WriteCommand(cmd, CHIP2);
 }
 
-static uint8_t cursor_x;
-static uint8_t cursor_y;
-
-void lcd_set_cursor(uint8_t row, uint8_t col) {
-  cursor_x = 6 * col;
-  cursor_y = 8 * row;
+void ks0108Init(uint8_t invert) {
+	ks0108Coord.x = 0;
+	ks0108Coord.y = 0;
+	ks0108Coord.page = 0;
+	
+	ks0108Inverted = invert;
+	
+	LCD_CMD_DIR = 0xFF;								// command port is output
+	ks0108WriteCommand(LCD_ON, CHIP1);				// power on
+	ks0108WriteCommand(LCD_ON, CHIP2);
+	
+	ks0108WriteCommand(LCD_DISP_START, CHIP1);		// display start line = 0
+	ks0108WriteCommand(LCD_DISP_START, CHIP2);
+	ks0108ClearScreen();							// display clear
+	ks0108GotoXY(0,0);
 }
 
-void lcd_putch(uint8_t ch) {
-  uint8_t x, y;
-  const prog_uint8_t* chp;
-  uint8_t b;
-  if (ch < 32) ch = 32;
-  if (ch > 128) ch = 128;
-  chp = font_5x7_data + 5 * (ch-32);
-  for(x = 0; x < 6; ++x) {
-    b = pgm_read_byte(chp + x);
-    for(y = 0; y < 8; ++y) {
-      if (x < 5 && y < 7) {
-        lcd_setbit(cursor_x + x, cursor_y +y, b & (1<<y));
-      } else {
-        lcd_setbit(cursor_x + x, cursor_y +y, 0);
-      }
-    }
-  }
-  cursor_x += 6;
-  lcd_flush();
+inline void ks0108Enable(void) {
+	LCD_CMD_PORT |= 0x01 << EN;						// EN high level width: min. 450ns
+	asm volatile("nop\n\t"
+				 "nop\n\t"
+				 "nop\n\t"
+				 ::);
+	LCD_CMD_PORT &= ~(0x01 << EN);
+	for(volatile uint8_t i=0; i<8; i++);			// a little delay loop (faster than reading the busy flag)
 }
 
-void lcd_putstr(const char* str) {
-  while(*str) {
-    lcd_putch(*str++);
-  }
+uint8_t ks0108DoReadData(uint8_t first) {
+	uint8_t data;
+	volatile uint8_t i;
+	
+	LCD_DATA_OUT = 0x00;
+	LCD_DATA_DIR = 0x00;							// data port is input
+	
+	if(ks0108Coord.x < 64) {
+		LCD_CMD_PORT &= ~(0x01 << CSEL2);			// deselect chip 2
+		LCD_CMD_PORT |= 0x01 << CSEL1;				// select chip 1
+	} else if(ks0108Coord.x >= 64) {
+		LCD_CMD_PORT &= ~(0x01 << CSEL1);			// deselect chip 1
+		LCD_CMD_PORT |= 0x01 << CSEL2;				// select chip 2
+	}
+	if(ks0108Coord.x == 64 && first) {				// chip2 X-address = 0
+		ks0108WriteCommand(LCD_SET_ADD, CHIP2); 	// wuff wuff
+	}
+	
+	LCD_CMD_PORT |= 0x01 << D_I;					// D/I = 1
+	LCD_CMD_PORT |= 0x01 << R_W;					// R/W = 1
+	
+	LCD_CMD_PORT |= 0x01 << EN;						// EN high level width: min. 450ns
+	asm volatile("nop\n\t"
+				 "nop\n\t"
+				 "nop\n\t"
+				 ::);
+	
+	data = LCD_DATA_IN;								// read Data			 
+	
+	LCD_CMD_PORT &= ~(0x01 << EN);
+	for(i=0; i<8; i++);								// a little delay loop (faster than reading the busy flag)
+	
+	LCD_DATA_DIR = 0xFF;
+	
+	ks0108GotoXY(ks0108Coord.x, ks0108Coord.y);
+	
+	if(ks0108Inverted)
+		data = ~data;
+	return data;
+}
+
+inline uint8_t ks0108ReadData(void) {
+	ks0108DoReadData(1);							// dummy read
+	return ks0108DoReadData(0);						// "real" read
+}
+
+void ks0108WriteCommand(uint8_t cmd, uint8_t chip) {
+	if(chip == CHIP1) {
+		LCD_CMD_PORT &= ~(0x01 << CSEL2);			// deselect chip 2
+		LCD_CMD_PORT |= 0x01 << CSEL1;				// select chip 1
+	} else if(chip == CHIP2) {
+		LCD_CMD_PORT &= ~(0x01 << CSEL1);			// deselect chip 1
+		LCD_CMD_PORT |= 0x01 << CSEL2;				// select chip 2
+	}
+	
+	LCD_CMD_PORT &= ~(0x01 << D_I);					// D/I = 0
+	LCD_CMD_PORT &= ~(0x01 << R_W);					// R/W = 0
+	LCD_DATA_DIR = 0xFF;							// data port is output
+	LCD_DATA_OUT = cmd;								// write command
+	ks0108Enable();									// enable
+	LCD_DATA_OUT = 0x00;
+}
+
+void ks0108WriteData(uint8_t data) {
+	uint8_t displayData, yOffset, cmdPort;
+
+#ifdef DEBUG
+	volatile uint16_t i;
+	for(i=0; i<5000; i++);
+#endif
+
+	if(ks0108Coord.x >= 128)
+		return;
+
+	if(ks0108Coord.x < 64) {
+		LCD_CMD_PORT &= ~(0x01 << CSEL2);			// deselect chip 2
+		LCD_CMD_PORT |= 0x01 << CSEL1;				// select chip 1
+	} else if(ks0108Coord.x >= 64) {
+		LCD_CMD_PORT &= ~(0x01 << CSEL1);			// deselect chip 1
+		LCD_CMD_PORT |= 0x01 << CSEL2;				// select chip 2
+	}
+	if(ks0108Coord.x == 64)							// chip2 X-address = 0
+		ks0108WriteCommand(LCD_SET_ADD, CHIP2);
+	
+	LCD_CMD_PORT |= 0x01 << D_I;					// D/I = 1
+	LCD_CMD_PORT &= ~(0x01 << R_W);					// R/W = 0
+	LCD_DATA_DIR = 0xFF;							// data port is output
+	
+	
+	yOffset = ks0108Coord.y%8;
+	if(yOffset != 0) {
+		// first page
+		cmdPort = LCD_CMD_PORT;						// save command port
+		displayData = ks0108ReadData();
+		
+		LCD_CMD_PORT = cmdPort;						// restore command port
+		LCD_DATA_DIR = 0xFF;						// data port is output
+		
+		displayData |= data << yOffset;
+		if(ks0108Inverted)
+			displayData = ~displayData;
+		LCD_DATA_OUT = displayData;					// write data
+		ks0108Enable();								// enable
+		
+		// second page
+		ks0108GotoXY(ks0108Coord.x, ks0108Coord.y+8);
+		
+		displayData = ks0108ReadData();
+		
+		LCD_CMD_PORT = cmdPort;						// restore command port
+		LCD_DATA_DIR = 0xFF;						// data port is output
+		
+		displayData |= data >> (8-yOffset);
+		if(ks0108Inverted)
+			displayData = ~displayData;
+		LCD_DATA_OUT = displayData;					// write data
+		ks0108Enable();								// enable
+		
+		ks0108GotoXY(ks0108Coord.x+1, ks0108Coord.y-8);
+	} else {
+		if(ks0108Inverted)
+			data = ~data;
+		LCD_DATA_OUT = data;						// write data
+		ks0108Enable();								// enable
+		ks0108Coord.x++;
+	}
+	LCD_DATA_OUT = 0x00;
 }

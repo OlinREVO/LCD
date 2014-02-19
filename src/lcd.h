@@ -1,32 +1,98 @@
-/* lcd.h -- (c) chris kern -- Mon Feb 16 17:37:37 EST 2009  */
-/* Computer programmers do it byte by byte.                 */
-#ifndef LCD_H__
-#define LCD_H__
+/*
+ * known Problems: none
+ * Version:        1.1
+ * Description:    Graphic Library for KS0108- (and compatible) based LCDs
+ * 
+ */
 
-#include <stdint.h>
+#include <inttypes.h>
+#include <avr/pgmspace.h>
 
-/* lcd_init(): initialize lcd port directions
- *             enable both display chips
- *             set display line to zero */
-void lcd_init();
+#ifndef	KS0108_H
+#define KS0108_H
 
-/* lcd_clear(): clear the entire lcd */
-void lcd_clear();
+// Ports
+#define LCD_CMD_PORT		PORTC		// Command Output Register
+#define LCD_CMD_DIR			DDRC		// Data Direction Register for Command Port
 
-/* lcd_setbit(): sets the bit at (x,y) to value v
- *               may not appear until lcd_flush() is called. */
-void lcd_setbit(uint8_t x, uint8_t y, uint8_t v);
+#define LCD_DATA_IN			PIND		// Data Input Register
+#define LCD_DATA_OUT		PORTD		// Data Output Register
+#define LCD_DATA_DIR		DDRD		// Data Direction Register for Data Port
 
-/* lcd_flush(): write pending bits out to display */
-void lcd_flush();
+// Command Port Bits
+#define D_I					0x00		// D/I Bit Number
+#define R_W					0x01		// R/W Bit Number
+#define EN					0x02		// EN Bit Number
+#define CSEL1				0x03		// CS1 Bit Number
+#define CSEL2				0x04		// CS2 Bit Number
 
-/* lcd_set_cursor(): set the cursor position to the given 6x8 cell */
-void lcd_set_cursor(uint8_t row, uint8_t col);
+// Chips
+#define CHIP1				0x00
+#define CHIP2				0x01
 
-/* lcd_putch(): write an ascii character at the cursor and advance */
-void lcd_putch(uint8_t ch);
+// Commands
+#define LCD_ON				0x3F
+#define LCD_OFF				0x3E
+#define LCD_SET_ADD			0x40
+#define LCD_SET_PAGE		0xB8
+#define LCD_DISP_START		0xC0
 
-/* lcd_putstr(): write a string at the cursor */ 
-void lcd_putstr(const char* str);
+// Colors
+#define BLACK				0xFF
+#define WHITE				0x00
 
-#endif  /* LCD_H__ */
+// Font Indices
+#define FONT_LENGTH			0
+#define FONT_FIXED_WIDTH	2
+#define FONT_HEIGHT			3
+#define FONT_FIRST_CHAR		4
+#define FONT_CHAR_COUNT		5
+#define FONT_WIDTH_TABLE	6
+
+// Uncomment for slow drawing
+// #define DEBUG
+
+typedef struct {
+	uint8_t x;
+	uint8_t y;
+	uint8_t page;
+} lcdCoord;
+
+typedef uint8_t (*ks0108FontCallback)(const uint8_t*);
+
+//
+// Function Prototypes
+//
+
+// Graphic Functions
+void ks0108DrawLine(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t color);
+void ks0108DrawRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t color);
+void ks0108DrawRoundRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t radius, uint8_t color);
+void ks0108FillRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t color);
+void ks0108InvertRect(uint8_t x, uint8_t y, uint8_t width, uint8_t height);
+void ks0108SetInverted(uint8_t invert);
+void ks0108SetDot(uint8_t x, uint8_t y, uint8_t color);
+
+#define ks0108DrawVertLine(x, y, length, color) {ks0108FillRect(x, y, 0, length, color);}
+#define ks0108DrawHoriLine(x, y, length, color) {ks0108FillRect(x, y, length, 0, color);}
+#define ks0108DrawCircle(xCenter, yCenter, radius, color) {ks0108DrawRoundRect(xCenter-radius, yCenter-radius, 2*radius, 2*radius, radius, color);}
+#define ks0108ClearScreen() {ks0108FillRect(0, 0, 127, 63, WHITE);}
+
+// Font Functions
+uint8_t ks0108ReadFontData(const uint8_t* ptr);		//Standard Read Callback
+void ks0108SelectFont(const char* font, ks0108FontCallback callback, uint8_t color);
+int ks0108PutChar(char c);
+void ks0108Puts(char* str);
+void ks0108Puts_P(PGM_P str);
+uint8_t ks0108CharWidth(char c);
+uint16_t ks0108StringWidth(char* str);
+uint16_t ks0108StringWidth_P(PGM_P str);
+
+// Control Functions
+void ks0108GotoXY(uint8_t x, uint8_t y);
+void ks0108Init(uint8_t invert);
+inline uint8_t ks0108ReadData(void);
+void ks0108WriteCommand(uint8_t cmd, uint8_t chip);
+void ks0108WriteData(uint8_t data);
+
+#endif

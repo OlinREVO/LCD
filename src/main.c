@@ -1,37 +1,44 @@
-/* main.c -- (c) chris kern -- Mon Feb 16 20:35:41 EST 2009     */
-/* "Don't fear the pen. When in doubt, draw a pretty picture."  */
-/*     -- Baker's Third Law of Design.                           */
-
+/**
+* LCD Sensor Node
+* REVO
+* Author: Jay, Nitya, Pratool
+* Description: ADM12864H Ver1.0
+*/
 #include <stdint.h>
 #include "lcd.h"
+#include "lcd.c"
 
-int main(void){
-  uint8_t x, y, z = 0;
-  lcd_init();
+//structure of window coordinates
+struct window {
+	uint8_t xmin;
+	uint8_t ymin;
+	uint8_t xmax;
+	uint8_t ymax;
+} win;
 
-  // print some text
-  lcd_set_cursor(0, 11);
-  lcd_putstr("128x64 LCD");
-  lcd_set_cursor(2, 11);
-  lcd_putstr("HELLO");
-  lcd_set_cursor(3, 11);
-  lcd_putstr("WORLD");
-
-  while(1) {
-    // draw an animated barberpole on the left side of the screen
-    for(x = 0; x < 64; ++x) {
-      for(y = 0; y < 64; ++y) {
-        if ((y+x+z) % 8 < 4) {
-          lcd_setbit(x, y, 1);
-        } else {
-          lcd_setbit(x, y, 0);
-        }
-      }
-    }
-    ++z;
-    if (z == 8) z = 0;
-  }
-  
-  return 0;
+void delay1s(void)
+{
+	uint8_t i;
+	for(i=0;i<100;i++)
+	_delay_ms(10);
 }
 
+
+int main(void) {
+	// Wait a little while the display starts up
+	for(volatile uint16_t i=0; i<15000; i++);
+	// Initialize the LCD
+	ks0108Init(0);
+	//set active window area
+	setWindow(0,0,63,31);
+	//draw signal
+	char[30] msg = "Hello World";
+	ks0108Puts(msg)
+	delay1s();
+	
+	//set active window area
+	setWindow(0,0,127,63);
+	//ks0108ClearScreen();
+
+	while(1);
+}
