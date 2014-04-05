@@ -6,7 +6,6 @@
 */
 #include <stdint.h>
 #include "lcd.h"
-#include "lcd.c"
 
 //structure of window coordinates
 struct window {
@@ -18,27 +17,22 @@ struct window {
 
 void delay1s(void)
 {
-	uint8_t i;
-	for(i=0;i<100;i++)
-	_delay_ms(10);
+	volatile uint16_t i;
+	for(i=0; i<15000; i++);
 }
 
 
 int main(void) {
 	// Wait a little while the display starts up
-	for(volatile uint16_t i=0; i<15000; i++);
+	delay1s();
 	// Initialize the LCD
 	ks0108Init(0);
 	//set active window area
-	setWindow(0,0,63,31);
+	//setWindow(0,0,63,31);
 	//draw signal
-	char[30] msg = "Hello World";
-	ks0108Puts(msg)
+	char msg[13] = "Hello World";
+	ks0108Puts(msg);
 	delay1s();
 	
-	//set active window area
-	setWindow(0,0,127,63);
-	//ks0108ClearScreen();
-
 	while(1);
 }

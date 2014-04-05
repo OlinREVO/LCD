@@ -8,7 +8,7 @@
 #include <inttypes.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
-#include "ks0108.h"
+#include "lcd.h"
 
 lcdCoord			ks0108Coord;
 uint8_t				ks0108Inverted=0;
@@ -316,20 +316,23 @@ int ks0108PutChar(char c) {
 	c-= firstChar;
 	
 	// read width data, to get the index
-	for(uint8_t i=0; i<c; i++) {
+	uint8_t i;
+	for(i=0; i<c; i++) {
 		index += ks0108FontRead(ks0108Font+FONT_WIDTH_TABLE+i);
 	}
 	index = index*bytes+charCount+FONT_WIDTH_TABLE;
 	width = ks0108FontRead(ks0108Font+FONT_WIDTH_TABLE+c);
 	
 	// last but not least, draw the character
-	for(uint8_t i=0; i<bytes; i++) {
-		uint8_t page = i*width;
-		for(uint8_t j=0; j<width; j++) {
+	uint8_t k;
+	for(k=0; k<bytes; k++) {
+		uint8_t page = k*width;
+		uint8_t j;
+		for(j=0; j<width; j++) {
 			uint8_t data = ks0108FontRead(ks0108Font+index+page+j);
 			
-			if(height < (i+1)*8) {
-				data >>= (i+1)*8-height;
+			if(height < (k+1)*8) {
+				data >>= (k+1)*8-height;
 			}
 			
 			if(ks0108FontColor == BLACK) {
@@ -455,7 +458,8 @@ inline void ks0108Enable(void) {
 				 "nop\n\t"
 				 ::);
 	LCD_CMD_PORT &= ~(0x01 << EN);
-	for(volatile uint8_t i=0; i<8; i++);			// a little delay loop (faster than reading the busy flag)
+	volatile uint8_t i;
+	for(i=0; i<8; i++);			// a little delay loop (faster than reading the busy flag)
 }
 
 uint8_t ks0108DoReadData(uint8_t first) {

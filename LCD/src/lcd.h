@@ -95,4 +95,5 @@ inline uint8_t ks0108ReadData(void);
 void ks0108WriteCommand(uint8_t cmd, uint8_t chip);
 void ks0108WriteData(uint8_t data);
 
+#define setWindow(uint8_t xmin, uint8_t ymin, uint8_t xmax, uint8_t ymax);
 #endif
