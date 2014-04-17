@@ -8,7 +8,7 @@
 #include <inttypes.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
-#include "lcd.h"
+//#include "lcd.h"
 
 lcdCoord			ks0108Coord;
 uint8_t				ks0108Inverted=0;

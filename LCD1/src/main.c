@@ -4,34 +4,47 @@
 
 #include <stdint.h>
 #include "lcd.h"
+#include <avr/io.h>
+#include "uart.h"
 
 int main(void){
   uint8_t x, y, z = 0;
-  lcd_init();
+  DDRC |= _BV(PC5);
+  //PORTC |= _BV(PC5); //turns on LCD
 
-  // print some text
-  //lcd_set_cursor(0, 11);
-  //lcd_putstr("128x64 lcd");
-  //lcd_set_cursor(2, 11);
-  //lcd_putstr("hello");
+  initUART();
+
+  //endUART();
+  //UART_putString("UART initialized\n"); 
+  lcd_init();
+  UART_putString("LCD initialized\n");
+  //print some text
+  lcd_set_cursor(0, 11);
+  lcd_putstr("128x64 lcd");
+  lcd_set_cursor(2, 11);
+  lcd_putstr("hello");
   lcd_set_cursor(3, 11);
   lcd_putstr("world");
   lcd_flush();
 
-/*  while(1) {
+  while(1) {
+
     // draw an animated barberpole on the left side of the screen
     for(x = 0; x < 64; ++x) {
       for(y = 0; y < 64; ++y) {
         if ((y+x+z) % 8 < 4) {
           lcd_setbit(x, y, 1);
+          PORTC |= _BV(PC5);
         } else {
           lcd_setbit(x, y, 0);
+          PORTC &= ~_BV(PC5);
+
         }
       }
     }
     ++z;
     if (z == 8) z = 0;
-  }*/
+  }
   
   return 0;
 }

@@ -6,6 +6,7 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
+
 #define KS0108_DATA_PORT	PORTB
 #define KS0108_DATA_DIR		DDRB
 #define KS0108_DATA_PIN		PINB
@@ -20,6 +21,8 @@
 #define KS0108_CS1			(1 << 6)
 #define KS0108_CS2			(1 << 5)
 #define KS0108_CS3			(1 << 5)
+
+extern void GLCD_InitalizePorts(void);
 
 extern unsigned char screen_x;
 extern unsigned char screen_y;

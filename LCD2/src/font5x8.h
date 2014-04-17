@@ -2,7 +2,8 @@
 //
 // Tablica czcionek 5x7 
 // 
-//#include <avr/pgmspace.h>
+#include <avr/pgmspace.h>
+
 static const char /*PROGMEM*/  font5x8[] = {
 0x00, 0x00, 0x00, 0x00, 0x00,// (spacja)
 0x00, 0x00, 0x5F, 0x00, 0x00,// !

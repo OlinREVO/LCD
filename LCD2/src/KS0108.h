@@ -1,5 +1,3 @@
-
-
 #define KS0108_SCREEN_WIDTH		128
 #define KS0108_SCREEN_HEIGHT	64
 
@@ -21,6 +19,3 @@ void GLCD_WriteString(char *);
 unsigned char GLCD_ReadByteFromROMMemory(char *);
 unsigned char GLCD_ReadData(void);
 void GLCD_Bitmap(char *, unsigned char, unsigned char, unsigned char, unsigned char);
-
-
-
