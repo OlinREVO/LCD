@@ -70,31 +70,34 @@ uint8_t lcd_read(uint8_t chip, uint8_t reg) {
 }
 
 void lcd_wait(uint8_t chip) {
-  //UART_putString("inside LCD_wait function\n");
   initUART();
-  while(lcd_read(chip, LCD_INST) & (LCD_BUSY | LCD_RESET)) { 
+  _delay_ms(1000);
+  UART_putString("inside LCD_wait function\n");
+/*  while(lcd_read(chip, LCD_INST) & (LCD_BUSY | LCD_RESET)) { 
     if (lcd_read(chip, LCD_INST) & (LCD_RESET)) {
       _delay_ms(500);
       UART_putString("LCD reset high\n"); 
     } 
-    else if(lcd_read(chip, LCD_INST) & (LCD_BUSY)){
+  else if(lcd_read(chip, LCD_INST) & (LCD_BUSY)){
       _delay_ms(500);
       UART_putString("LCD busy high\n");
     }
 
-    else {PORTC &= ~_BV(PC5);}
+  else {PORTC &= ~_BV(PC5);}
       _delay_ms(500);
       UART_putString("LCD neither??\n");
-  }
+    }*/
+
 }
 
 void lcd_write_wait(uint8_t chip, uint8_t reg, uint8_t data) {
   lcd_write(chip, reg, data);
-  lcd_wait(chip);
+  //lcd_wait(chip);
 }
 
 void lcd_init() {
   initUART();
+  _delay_ms(500);
   UART_putString("Inside LCD_init function\n");
   uint16_t d;
   DDRB   =  0x00;  // PORTB inputs for now.
@@ -103,11 +106,12 @@ void lcd_init() {
   PORTD |=  0x0C;  // CS1, CS2 high
   
   for(d=0; d<50000; ++d);  // let the above sink in a bit.
+  _delay_ms(500);
   UART_putString("Starting wait functions\n");
 
-  lcd_wait(0);
+  //lcd_wait(0);
   UART_putString("Wait CS1 done\n");
-  lcd_wait(1);
+  //lcd_wait(1);
   UART_putString("Wait CS2 done\n");
   lcd_write_wait(0, LCD_INST, LCD_POWERON(1));
   lcd_write_wait(1, LCD_INST, LCD_POWERON(1));
