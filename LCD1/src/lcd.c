@@ -73,26 +73,28 @@ void lcd_wait(uint8_t chip) {
   initUART();
   _delay_ms(1000);
   UART_putString("inside LCD_wait function\n");
-/*  while(lcd_read(chip, LCD_INST) & (LCD_BUSY | LCD_RESET)) { 
-    if (lcd_read(chip, LCD_INST) & (LCD_RESET)) {
-      _delay_ms(500);
-      UART_putString("LCD reset high\n"); 
-    } 
-  else if(lcd_read(chip, LCD_INST) & (LCD_BUSY)){
-      _delay_ms(500);
-      UART_putString("LCD busy high\n");
-    }
+  //while(lcd_read(chip, LCD_INST) & (LCD_BUSY | LCD_RESET)) { 
 
-  else {PORTC &= ~_BV(PC5);}
+  //   if (lcd_read(chip, LCD_INST) & (LCD_RESET)) {
+  //     _delay_ms(500);
+  //     UART_putString("LCD reset high\n"); 
+  //   } 
+  // else if(lcd_read(chip, LCD_INST) & (LCD_BUSY)){
+  //     _delay_ms(500);
+  //     UART_putString("LCD busy high\n");
+  //   }
+
+  /*else {PORTC &= ~_BV(PC5);}
       _delay_ms(500);
       UART_putString("LCD neither??\n");
     }*/
 
 }
+}
 
 void lcd_write_wait(uint8_t chip, uint8_t reg, uint8_t data) {
   lcd_write(chip, reg, data);
-  //lcd_wait(chip);
+  lcd_wait(chip);
 }
 
 void lcd_init() {
