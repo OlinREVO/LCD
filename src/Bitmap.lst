@@ -1,0 +1,93 @@
+   1               		.file	"Bitmap.c"
+   2               	__SREG__ = 0x3f
+   3               	__SP_H__ = 0x3e
+   4               	__SP_L__ = 0x3d
+   5               	__CCP__  = 0x34
+   6               	__tmp_reg__ = 0
+   7               	__zero_reg__ = 1
+  15               	.Ltext0:
+  16               	.global	LoadBitmap
+  18               	LoadBitmap:
+  19               	.LFB2:
+  20               	.LM1:
+  21               	.LVL0:
+  22 0000 EF92      		push r14
+  23 0002 FF92      		push r15
+  24 0004 0F93      		push r16
+  25 0006 1F93      		push r17
+  26 0008 CF93      		push r28
+  27 000a DF93      		push r29
+  28               	/* prologue: function */
+  29               	/* frame size = 0 */
+  30 000c 8C01      		movw r16,r24
+  31               	.LM2:
+  32 000e FF24      		clr r15
+  33 0010 00C0      		rjmp .L2
+  34               	.LVL1:
+  35               	.L3:
+  36               	.LBB2:
+  37               	.LM3:
+  38 0012 F801      		movw r30,r16
+  39 0014 EC0F      		add r30,r28
+  40 0016 FD1F      		adc r31,r29
+  41               	/* #APP */
+  42               	 ;  15 "Bitmap.c" 1
+  43 0018 E490      		lpm r14, Z
+  44               		
+  45               	 ;  0 "" 2
+  46               	/* #NOAPP */
+  47               	.LBE2:
+  48               	.LM4:
+  49 001a 8C2F      		mov r24,r28
+  50 001c 6F2D      		mov r22,r15
+  51 001e 00D0      		rcall ks0108GotoXY
+  52               	.LM5:
+  53 0020 8E2D      		mov r24,r14
+  54 0022 00D0      		rcall ks0108WriteData
+  55               	.LM6:
+  56 0024 2196      		adiw r28,1
+  57 0026 C038      		cpi r28,128
+  58 0028 D105      		cpc r29,__zero_reg__
+  59 002a 01F4      		brne .L3
+  60 002c 0058      		subi r16,lo8(-(128))
+  61 002e 1F4F      		sbci r17,hi8(-(128))
+  62 0030 88E0      		ldi r24,lo8(8)
+  63 0032 F80E      		add r15,r24
+  64               	.LM7:
+  65 0034 80E4      		ldi r24,lo8(64)
+  66 0036 F816      		cp r15,r24
+  67 0038 01F0      		breq .L5
+  68               	.LVL2:
+  69               	.L2:
+  70 003a C0E0      		ldi r28,lo8(0)
+  71 003c D0E0      		ldi r29,hi8(0)
+  72 003e 00C0      		rjmp .L3
+  73               	.LVL3:
+  74               	.L5:
+  75               	/* epilogue start */
+  76               	.LM8:
+  77 0040 DF91      		pop r29
+  78 0042 CF91      		pop r28
+  79               	.LVL4:
+  80 0044 1F91      		pop r17
+  81 0046 0F91      		pop r16
+  82               	.LVL5:
+  83 0048 FF90      		pop r15
+  84 004a EF90      		pop r14
+  85               	.LVL6:
+  86 004c 0895      		ret
+  87               	.LFE2:
+ 113               	.Letext0:
+DEFINED SYMBOLS
+                            *ABS*:00000000 Bitmap.c
+C:\Users\MMM\AppData\Local\Temp/cchJX9b7.s:2      *ABS*:0000003f __SREG__
+C:\Users\MMM\AppData\Local\Temp/cchJX9b7.s:3      *ABS*:0000003e __SP_H__
+C:\Users\MMM\AppData\Local\Temp/cchJX9b7.s:4      *ABS*:0000003d __SP_L__
+C:\Users\MMM\AppData\Local\Temp/cchJX9b7.s:5      *ABS*:00000034 __CCP__
+C:\Users\MMM\AppData\Local\Temp/cchJX9b7.s:6      *ABS*:00000000 __tmp_reg__
+C:\Users\MMM\AppData\Local\Temp/cchJX9b7.s:7      *ABS*:00000001 __zero_reg__
+C:\Users\MMM\AppData\Local\Temp/cchJX9b7.s:18     .text:00000000 LoadBitmap
+
+UNDEFINED SYMBOLS
+ks0108GotoXY
+ks0108WriteData
